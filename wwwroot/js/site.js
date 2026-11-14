@@ -496,13 +496,17 @@ if (lightbox) {
         }
     }
 
-    document.querySelectorAll('[data-viewer-open]').forEach(link => {
+    document.querySelectorAll('[data-viewer-open="true"]').forEach(link => {
         link.addEventListener('click', event => {
             if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) {
                 return;
             }
+            const viewerItem = link.closest('[data-viewer-item]');
+            if (!viewerItem) {
+                return;
+            }
             event.preventDefault();
-            openItem(link.closest('[data-viewer-item]'));
+            openItem(viewerItem);
         });
     });
 

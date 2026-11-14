@@ -108,7 +108,7 @@ else
                      data-modified="@(item.Modified == DateTime.MinValue ? "" : item.Modified.ToUniversalTime().ToString("O"))"
                      @if (!item.IsDirectory) { <text>data-viewer-item data-viewer-name="@item.Name" data-viewer-type="@item.Category" data-viewer-preview="@Url.Action("Preview", new { id = Model.Connection.Id, path = item.Path })" data-viewer-page="@Url.Action("Open", new { id = Model.Connection.Id, path = item.Path, version })" data-viewer-download="@Url.Action("Download", new { id = Model.Connection.Id, path = item.Path })"</text> }
                      @if (!item.IsDirectory && item.Category == "image") { <text>data-viewer-high="@Url.Action("Thumbnail", new { id = Model.Connection.Id, path = item.Path, width = 1600, version })"</text> }>
-                <a class="file-preview-tile" asp-action="@(item.IsDirectory ? "Index" : "Open")" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path" asp-route-version="@version" title="Open @item.Name" data-viewer-open="@(item.IsDirectory ? null : "true")">
+                <a class="file-preview-tile" asp-action="@(item.IsDirectory ? "Index" : "Open")" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path" asp-route-version="@version" title="Open @item.Name" data-viewer-open="@(item.IsDirectory ? "false" : "true")">
                     @if (item.IsDirectory)
                     {
                         <span class="folder-art"><i></i><b>@item.Name[..1].ToUpperInvariant()</b></span>
@@ -131,7 +131,7 @@ else
                         <span class="type-art @item.Category"><i>@fileLabel</i></span>
                     }
                 </a>
-                <a class="file-name" asp-action="@(item.IsDirectory ? "Index" : "Open")" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path" asp-route-version="@version" data-viewer-open="@(item.IsDirectory ? null : "true")" title="@item.Name">
+                <a class="file-name" asp-action="@(item.IsDirectory ? "Index" : "Open")" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path" asp-route-version="@version" data-viewer-open="@(item.IsDirectory ? "false" : "true")" title="@item.Name">
                     <i class="file-icon @(item.IsDirectory ? "folder-icon" : $"document-icon {item.Category}")">@(item.IsDirectory ? "" : item.Extension.TrimStart('.').ToUpperInvariant()[..Math.Min(3, item.Extension.TrimStart('.').Length)])</i>
                     <span><strong>@item.Name</strong><small>@item.TypeLabel · @item.DisplaySize</small></span>
                 </a>
@@ -143,7 +143,7 @@ else
                     <div class="dropdown-menu dropdown-menu-end shadow-sm">
                         @if (!item.IsDirectory)
                         {
-                            <a class="dropdown-item" asp-action="Open" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path" asp-route-version="@version" data-viewer-open>Open</a>
+                            <a class="dropdown-item" asp-action="Open" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path" asp-route-version="@version" data-viewer-open="true">Open</a>
                             <a class="dropdown-item dropdown-item-icon" asp-action="Download" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 20h14" /></svg>
                                 <span>Download</span>
