@@ -1,0 +1,209 @@
+@model FileBrowserViewModel
+@{
+    ViewData["Title"] = Model.Connection.Name;
+}
+<div class="browser-header">
+    <div class="browser-title">
+        <a class="server-badge" asp-controller="Connections" asp-action="Index">⇅</a>
+        <div><h1>@Model.Connection.Name</h1><p>@Model.Connection.Host <span>•</span> @Model.Connection.SecurityMode</p></div>
+    </div>
+    <div class="browser-header-actions">
+        <form class="browser-search" method="get">
+            <input type="hidden" name="id" value="@Model.Connection.Id" />
+            <input type="hidden" name="path" value="@Model.Path" />
+            <span>⌕</span><input name="search" value="@Model.Search" placeholder="Search this folder" /><kbd>/</kbd>
+        </form>
+        <a class="icon-button" asp-controller="Connections" asp-action="Edit" asp-route-id="@Model.Connection.Id" title="Connection settings">⚙</a>
+    </div>
+</div>
+
+<div class="file-toolbar">
+    <div class="breadcrumbs" aria-label="Breadcrumb">
+        @foreach (var crumb in Model.Breadcrumbs)
+        {
+            <a asp-action="Index" asp-route-id="@Model.Connection.Id" asp-route-path="@crumb.Path">@crumb.Name</a>
+            @if (crumb != Model.Breadcrumbs[^1])
+            {
+                <span>›</span>
+            }
+        }
+    </div>
+    <div class="toolbar-actions">
+        <button class="button button-soft" type="button" data-bs-toggle="modal" data-bs-target="#folderModal"><span>＋</span> New folder</button>
+        <button class="button button-primary" type="button" data-upload-trigger><span>⇧</span> Upload</button>
+    </div>
+</div>
+
+<div class="display-toolbar">
+    <div class="file-filter-group">
+        <button class="filter-chip active" type="button" data-file-filter="all">All</button>
+        <button class="filter-chip" type="button" data-file-filter="folder">Folders</button>
+        <button class="filter-chip" type="button" data-file-filter="image">Images</button>
+        <button class="filter-chip" type="button" data-file-filter="video">Videos</button>
+        <button class="filter-chip" type="button" data-file-filter="document">Documents</button>
+    </div>
+    <div class="display-options">
+        <label class="size-picker">Size
+            <select data-grid-size aria-label="Thumbnail size">
+                <option value="small">Small</option>
+                <option value="medium" selected>Medium</option>
+                <option value="large">Large</option>
+                <option value="very-large">Very large</option>
+            </select>
+        </label>
+        <div class="view-switch" role="group" aria-label="Display style">
+            <button type="button" data-view="list" title="List view" aria-label="List view">☷</button>
+            <button type="button" class="active" data-view="grid" title="Grid view" aria-label="Grid view">▦</button>
+        </div>
+    </div>
+</div>
+
+<form asp-action="Upload" method="post" enctype="multipart/form-data" class="upload-form">
+    <input type="hidden" name="id" value="@Model.Connection.Id" />
+    <input type="hidden" name="path" value="@Model.Path" />
+    <input type="file" name="file" hidden data-upload-input />
+</form>
+
+@if (ViewData["ConnectionError"] is string connectionError)
+{
+    <section class="connection-error">
+        <div>!</div><h2>@connectionError</h2><p>@ViewData["ConnectionErrorDetail"]</p>
+        <a class="button button-primary" asp-controller="Connections" asp-action="Edit" asp-route-id="@Model.Connection.Id">Review connection</a>
+    </section>
+}
+else
+{
+    <section class="file-panel media-browser" data-file-container data-display="grid" data-size="medium">
+        <div class="file-table-head"><span>Name</span><span>Size</span><span>Modified</span><span>Actions</span></div>
+        @if (Model.Path.Length > 0)
+        {
+            <a class="file-row parent-row" data-always-visible asp-action="Index" asp-route-id="@Model.Connection.Id" asp-route-path="@Model.ParentPath">
+                <span class="file-name"><i class="file-icon folder-icon">↑</i><span><strong>Back</strong><small>Parent folder</small></span></span><span></span><span></span><span></span>
+            </a>
+        }
+        @foreach (var item in Model.Items)
+        {
+            var version = $"{item.Size:x}-{item.Modified.Ticks:x}";
+            var fileLabel = string.IsNullOrWhiteSpace(item.Extension)
+                ? "FILE"
+                : item.Extension.TrimStart('.').ToUpperInvariant()[..Math.Min(4, item.Extension.TrimStart('.').Length)];
+            <article class="file-row media-card" data-file-item data-category="@item.Category" data-file-name="@item.Name.ToLowerInvariant()"
+                     @if (!item.IsDirectory) { <text>data-viewer-item data-viewer-name="@item.Name" data-viewer-type="@item.Category" data-viewer-preview="@Url.Action("Preview", new { id = Model.Connection.Id, path = item.Path })" data-viewer-page="@Url.Action("Open", new { id = Model.Connection.Id, path = item.Path, version })" data-viewer-download="@Url.Action("Download", new { id = Model.Connection.Id, path = item.Path })"</text> }
+                     @if (!item.IsDirectory && item.Category == "image") { <text>data-viewer-high="@Url.Action("Thumbnail", new { id = Model.Connection.Id, path = item.Path, width = 1600, version })"</text> }>
+                <a class="file-preview-tile" asp-action="@(item.IsDirectory ? "Index" : "Open")" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path" asp-route-version="@version" title="Open @item.Name" data-viewer-open="@(item.IsDirectory ? null : "true")">
+                    @if (item.IsDirectory)
+                    {
+                        <span class="folder-art"><i></i><b>@item.Name[..1].ToUpperInvariant()</b></span>
+                    }
+                    else if (item.Category == "image")
+                    {
+                        <span class="thumbnail-fallback type-art image"><i>@fileLabel</i></span>
+                        <img class="media-thumbnail" src="@Url.Action("Thumbnail", new { id = Model.Connection.Id, path = item.Path, width = 640, version })" alt="Thumbnail of @item.Name" loading="lazy" decoding="async" data-thumbnail />
+                    }
+                    else if (item.Category == "video")
+                    {
+                        <span class="video-art">
+                            <span class="thumbnail-fallback type-art video"><i>@fileLabel</i></span>
+                            <img class="media-thumbnail" src="@Url.Action("Thumbnail", new { id = Model.Connection.Id, path = item.Path, width = 640, version })" alt="Video poster for @item.Name" loading="lazy" decoding="async" data-thumbnail />
+                            <i>▶</i>
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="type-art @item.Category"><i>@fileLabel</i></span>
+                    }
+                </a>
+                <a class="file-name" asp-action="@(item.IsDirectory ? "Index" : "Open")" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path" asp-route-version="@version" data-viewer-open="@(item.IsDirectory ? null : "true")">
+                    <i class="file-icon @(item.IsDirectory ? "folder-icon" : $"document-icon {item.Category}")">@(item.IsDirectory ? "" : item.Extension.TrimStart('.').ToUpperInvariant()[..Math.Min(3, item.Extension.TrimStart('.').Length)])</i>
+                    <span><strong>@item.Name</strong><small>@item.TypeLabel · @item.DisplaySize</small></span>
+                </a>
+                <span class="file-size">@item.DisplaySize</span>
+                <span class="file-modified">@(item.Modified == DateTime.MinValue ? "—" : item.Modified.ToString("MMM d, yyyy · h:mm tt"))</span>
+                <div class="file-actions">
+                    <div class="dropdown">
+                    <button type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Actions for @item.Name">•••</button>
+                    <div class="dropdown-menu dropdown-menu-end shadow-sm">
+                        @if (!item.IsDirectory)
+                        {
+                            <a class="dropdown-item" asp-action="Open" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path" asp-route-version="@version" data-viewer-open>Open</a>
+                            <a class="dropdown-item dropdown-item-icon" asp-action="Download" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 20h14" /></svg>
+                                <span>Download</span>
+                            </a>
+                        }
+                        <button class="dropdown-item" type="button" data-rename data-path="@item.Path" data-name="@item.Name">Rename</button>
+                        <button class="dropdown-item" type="button" data-move data-path="@item.Path" data-directory="@item.IsDirectory.ToString().ToLowerInvariant()">Move</button>
+                        <div class="dropdown-divider"></div>
+                        <button class="dropdown-item text-danger" type="button" data-delete data-path="@item.Path" data-name="@item.Name" data-directory="@item.IsDirectory.ToString().ToLowerInvariant()">Delete</button>
+                    </div>
+                    </div>
+                </div>
+            </article>
+        }
+        @if (Model.Items.Count == 0 && Model.Path.Length == 0)
+        {
+            <div class="folder-empty"><span>⇧</span><h2>@(Model.Search.Length > 0 ? "No matching files" : "This folder is empty")</h2><p>@(Model.Search.Length > 0 ? "Try a different search phrase." : "Upload a file or create a folder to begin.")</p></div>
+        }
+    </section>
+    <div class="filter-empty" data-filter-empty hidden><span>⌕</span><h2>No files in this view</h2><p>Choose another file type filter.</p></div>
+    <div class="file-summary"><span data-visible-count>@Model.Items.Count item@(Model.Items.Count == 1 ? "" : "s")</span><span>Secure connection</span></div>
+}
+
+<dialog class="media-lightbox" data-media-lightbox aria-label="File preview">
+    <div class="lightbox-shell">
+        <header class="lightbox-header">
+            <div class="lightbox-tools">
+                <button type="button" data-lightbox-reset title="Fit to screen" aria-label="Fit to screen">↺</button>
+                <button type="button" data-lightbox-zoom-out title="Zoom out" aria-label="Zoom out">−</button>
+                <button type="button" data-lightbox-zoom-in title="Zoom in" aria-label="Zoom in">＋</button>
+                <a data-lightbox-download title="Download" aria-label="Download">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 20h14" /></svg>
+                </a>
+                <button type="button" data-lightbox-fullscreen title="Fullscreen" aria-label="Fullscreen">⛶</button>
+                <button type="button" data-lightbox-close title="Close" aria-label="Close">×</button>
+            </div>
+        </header>
+        <div class="lightbox-stage" data-lightbox-stage>
+            <button class="lightbox-nav previous" type="button" data-lightbox-previous aria-label="Previous file">‹</button>
+            <div class="lightbox-media" data-lightbox-media></div>
+            <div class="lightbox-loading" data-lightbox-loading hidden aria-label="Loading"></div>
+            <button class="lightbox-nav next" type="button" data-lightbox-next aria-label="Next file">›</button>
+        </div>
+    </div>
+</dialog>
+
+<div class="modal fade" id="folderModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><form class="modal-content eagle-modal" asp-action="CreateFolder" method="post">
+        <input type="hidden" name="id" value="@Model.Connection.Id" /><input type="hidden" name="path" value="@Model.Path" />
+        <div class="modal-header"><div><span class="eyebrow">NEW ITEM</span><h2>Create folder</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body field-group"><label for="folderName">Folder name</label><input id="folderName" name="name" required maxlength="255" autocomplete="off" /></div>
+        <div class="modal-footer"><button type="button" class="button button-ghost" data-bs-dismiss="modal">Cancel</button><button class="button button-primary" type="submit">Create folder</button></div>
+    </form></div>
+</div>
+
+<div class="modal fade" id="renameModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><form class="modal-content eagle-modal" asp-action="Rename" method="post">
+        <input type="hidden" name="id" value="@Model.Connection.Id" /><input type="hidden" name="path" value="@Model.Path" /><input type="hidden" name="currentPath" />
+        <div class="modal-header"><div><span class="eyebrow">EDIT ITEM</span><h2>Rename</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body field-group"><label for="newName">New name</label><input id="newName" name="newName" required maxlength="255" autocomplete="off" /></div>
+        <div class="modal-footer"><button type="button" class="button button-ghost" data-bs-dismiss="modal">Cancel</button><button class="button button-primary" type="submit">Save</button></div>
+    </form></div>
+</div>
+
+<div class="modal fade" id="moveModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><form class="modal-content eagle-modal" asp-action="Move" method="post">
+        <input type="hidden" name="id" value="@Model.Connection.Id" /><input type="hidden" name="path" value="@Model.Path" /><input type="hidden" name="sourcePath" /><input type="hidden" name="isDirectory" />
+        <div class="modal-header"><div><span class="eyebrow">ORGANIZE</span><h2>Move item</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body field-group"><label for="destinationFolder">Destination folder</label><input id="destinationFolder" name="destinationFolder" placeholder="Folder/subfolder (blank for home)" autocomplete="off" /><small>Enter a path relative to this connection's starting folder.</small></div>
+        <div class="modal-footer"><button type="button" class="button button-ghost" data-bs-dismiss="modal">Cancel</button><button class="button button-primary" type="submit">Move</button></div>
+    </form></div>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><form class="modal-content eagle-modal" asp-action="Delete" method="post">
+        <input type="hidden" name="id" value="@Model.Connection.Id" /><input type="hidden" name="path" value="@Model.Path" /><input type="hidden" name="targetPath" /><input type="hidden" name="isDirectory" />
+        <div class="modal-header"><div><span class="eyebrow danger">PERMANENT ACTION</span><h2>Delete <span data-delete-name></span>?</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body"><p class="delete-warning">This item will be permanently removed from the remote server. This action cannot be undone.</p></div>
+        <div class="modal-footer"><button type="button" class="button button-ghost" data-bs-dismiss="modal">Cancel</button><button class="button button-danger" type="submit">Delete permanently</button></div>
+    </form></div>
+</div>

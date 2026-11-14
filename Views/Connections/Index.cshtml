@@ -1,0 +1,47 @@
+@model ConnectionsIndexViewModel
+@{
+    ViewData["Title"] = "Connections";
+}
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">YOUR WORKSPACE</span>
+        <h1>Connections</h1>
+        <p>Open a remote server or add a new destination.</p>
+    </div>
+    <a class="button button-primary" asp-action="Create"><span>＋</span> New connection</a>
+</div>
+
+@if (Model.Connections.Count == 0)
+{
+    <section class="empty-state">
+        <div class="empty-eagle">E</div>
+        <h2>Your nest is ready</h2>
+        <p>Add your first FTP or FTPS server to start browsing files securely.</p>
+        <a class="button button-primary button-large" asp-action="Create">Add a connection <span>→</span></a>
+    </section>
+}
+else
+{
+    <div class="connection-grid">
+        @foreach (var connection in Model.Connections)
+        {
+            <article class="connection-card">
+                <a class="connection-main" asp-controller="Files" asp-action="Index" asp-route-id="@connection.Id">
+                    <span class="server-icon">⇅</span>
+                    <span class="status-dot" title="Saved connection"></span>
+                    <h2>@connection.Name</h2>
+                    <p>@connection.Host:@connection.Port</p>
+                    <div class="connection-meta"><span>@connection.SecurityMode</span><span>@connection.RootPath</span></div>
+                </a>
+                <div class="connection-actions">
+                    <a asp-action="Edit" asp-route-id="@connection.Id">Edit</a>
+                    <form asp-action="Delete" asp-route-id="@connection.Id" method="post" data-confirm="Remove this saved connection?">
+                        <button type="submit">Remove</button>
+                    </form>
+                    <a class="open-arrow" asp-controller="Files" asp-action="Index" asp-route-id="@connection.Id" aria-label="Open @connection.Name">→</a>
+                </div>
+            </article>
+        }
+        <a class="connection-card add-connection-card" asp-action="Create"><span>＋</span><strong>Add connection</strong><small>FTP or FTPS server</small></a>
+    </div>
+}

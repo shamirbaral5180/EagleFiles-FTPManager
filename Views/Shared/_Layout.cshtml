@@ -1,0 +1,87 @@
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<IdentityUser> SignInManager
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#071b33" />
+    <title>@ViewData["Title"] - EagleFiles</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="@(SignInManager.IsSignedIn(User) ? "app-body" : "public-body")">
+    @if (SignInManager.IsSignedIn(User))
+    {
+        <header class="app-header">
+            <button class="icon-button mobile-menu-button" type="button" data-sidebar-button aria-label="Hide navigation" aria-expanded="true" title="Hide navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <a class="brand" asp-controller="Connections" asp-action="Index" aria-label="EagleFiles home">
+                <span class="brand-mark">E</span>
+                <span>Eagle<span>Files</span></span>
+            </a>
+            <div class="header-actions">
+                <a class="icon-button" asp-controller="Connections" asp-action="Create" title="New connection" aria-label="New connection">+</a>
+                <button class="avatar-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">@((User.Identity?.Name ?? "U")[0].ToString().ToUpperInvariant())</button>
+                <div class="dropdown-menu dropdown-menu-end shadow-sm">
+                    <div class="dropdown-header text-truncate">@User.Identity?.Name</div>
+                    <a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index">Account settings</a>
+                    <form asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="/">
+                        <button class="dropdown-item" type="submit">Sign out</button>
+                    </form>
+                </div>
+            </div>
+        </header>
+        <div class="app-shell">
+            <div class="sidebar-backdrop" data-sidebar-toggle></div>
+            <aside class="app-sidebar" id="appSidebar">
+                <nav class="side-nav" aria-label="Main navigation">
+                    <p class="nav-label">Workspace</p>
+                    <a asp-controller="Connections" asp-action="Index" class="@(ViewContext.RouteData.Values["controller"]?.ToString() == "Connections" ? "active" : "")">
+                        <span class="nav-icon">⌂</span> Connections
+                    </a>
+                    <a asp-controller="Connections" asp-action="Index" class="@(ViewContext.RouteData.Values["controller"]?.ToString() == "Files" ? "active" : "")">
+                        <span class="nav-icon">▱</span> File browser
+                    </a>
+                    <p class="nav-label nav-label-spaced">Quick access</p>
+                    <span class="nav-muted"><span class="nav-icon">★</span> Favorites <small>Soon</small></span>
+                    <span class="nav-muted"><span class="nav-icon">↻</span> Recent <small>Soon</small></span>
+                    <span class="nav-muted"><span class="nav-icon">⇩</span> Transfers <small>Soon</small></span>
+                </nav>
+                <div class="sidebar-card">
+                    <div class="sidebar-card-icon">⚡</div>
+                    <strong>Fly securely</strong>
+                    <p>Your saved passwords are encrypted on this server.</p>
+                </div>
+            </aside>
+            <main class="app-content">
+                @if (TempData["Success"] is string success)
+                {
+                    <div class="toast-alert success" role="status">✓ <span>@success</span><button type="button" aria-label="Dismiss">×</button></div>
+                }
+                @if (TempData["Error"] is string error)
+                {
+                    <div class="toast-alert error" role="alert">! <span>@error</span><button type="button" aria-label="Dismiss">×</button></div>
+                }
+                @RenderBody()
+            </main>
+        </div>
+    }
+    else
+    {
+        <header class="public-header">
+            <a class="brand" asp-controller="Home" asp-action="Index"><span class="brand-mark">E</span><span>Eagle<span>Files</span></span></a>
+            <div class="public-nav"><partial name="_LoginPartial" /></div>
+        </header>
+        <main class="public-content">@RenderBody()</main>
+    }
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

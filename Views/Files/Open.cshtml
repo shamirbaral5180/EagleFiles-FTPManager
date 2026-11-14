@@ -1,0 +1,56 @@
+@model FilePreviewViewModel
+@{
+    ViewData["Title"] = Model.FileName;
+    var rawUrl = Url.Action("Preview", "Files", new { id = Model.Connection.Id, path = Model.Path });
+    var displayUrl = Model.Category == "image"
+        ? Url.Action("Thumbnail", "Files", new { id = Model.Connection.Id, path = Model.Path, width = 1600, version = Model.Version })
+        : rawUrl;
+}
+<section class="preview-page">
+    <header class="preview-header">
+        <div class="preview-heading">
+            <a class="preview-back" asp-action="Index" asp-route-id="@Model.Connection.Id" asp-route-path="@Model.ParentPath" aria-label="Back to folder">←</a>
+            <div class="preview-file-mark @Model.Category">@Model.FileName.Split('.').Last().ToUpperInvariant()[..Math.Min(4, Model.FileName.Split('.').Last().Length)]</div>
+            <div><h1>@Model.FileName</h1><p>@Model.TypeLabel · @Model.Connection.Name</p></div>
+        </div>
+        <div class="preview-actions">
+            @if (Model.CanPreview)
+            {
+                <a class="icon-button" href="@rawUrl" target="_blank" title="Open original" aria-label="Open original">↗</a>
+            }
+            <a class="icon-button primary-icon-action" asp-action="Download" asp-route-id="@Model.Connection.Id" asp-route-path="@Model.Path" title="Download @Model.FileName" aria-label="Download @Model.FileName">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 20h14" /></svg>
+            </a>
+        </div>
+    </header>
+
+    <div class="preview-stage @Model.Category">
+        @if (Model.Category == "image")
+        {
+            <img src="@displayUrl" alt="@Model.FileName" />
+        }
+        else if (Model.Category == "video")
+        {
+            <video src="@rawUrl" controls autoplay playsinline></video>
+        }
+        else if (Model.Category == "audio")
+        {
+            <div class="audio-preview"><div class="audio-disc">♫</div><h2>@Model.FileName</h2><audio src="@rawUrl" controls autoplay></audio></div>
+        }
+        else if (Model.Category is "pdf" or "text")
+        {
+            <iframe src="@rawUrl" title="Preview of @Model.FileName"></iframe>
+        }
+        else
+        {
+            <div class="unsupported-preview">
+                <div class="unsupported-icon">@Model.FileName.Split('.').Last().ToUpperInvariant()[..Math.Min(5, Model.FileName.Split('.').Last().Length)]</div>
+                <h2>This file is ready to download</h2>
+                <p>Your browser cannot safely preview this format inside EagleFiles.</p>
+                <a class="button button-primary button-large icon-download-button" asp-action="Download" asp-route-id="@Model.Connection.Id" asp-route-path="@Model.Path">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 20h14" /></svg><span>Download file</span>
+                </a>
+            </div>
+        }
+    </div>
+</section>

@@ -1,0 +1,59 @@
+@model ConnectionProfileInput
+@{
+    var isEdit = Model.Id.HasValue;
+    ViewData["Title"] = isEdit ? "Edit connection" : "New connection";
+}
+<div class="form-page">
+    <div class="form-intro">
+        <a class="back-link" asp-action="Index">← All connections</a>
+        <span class="eyebrow">@(isEdit ? "UPDATE DESTINATION" : "NEW DESTINATION")</span>
+        <h1>@(isEdit ? "Edit connection" : "Connect a server")</h1>
+        <p>EagleFiles supports standard FTP and encrypted FTPS connections.</p>
+        <div class="security-note"><span>⌾</span><div><strong>Credentials stay protected</strong><p>Passwords are encrypted through ASP.NET Core Data Protection before being saved.</p></div></div>
+    </div>
+    <form class="panel form-panel" asp-action="@(isEdit ? "Edit" : "Create")" method="post">
+        <input asp-for="Id" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+        <div class="field-group">
+            <label asp-for="Name"></label>
+            <input asp-for="Name" placeholder="Production server" autocomplete="off" />
+            <span asp-validation-for="Name"></span>
+        </div>
+        <div class="form-row-wide">
+            <div class="field-group grow">
+                <label asp-for="Host"></label>
+                <input asp-for="Host" placeholder="ftp.example.com" autocapitalize="none" />
+                <span asp-validation-for="Host"></span>
+            </div>
+            <div class="field-group port-field">
+                <label asp-for="Port"></label>
+                <input asp-for="Port" />
+                <span asp-validation-for="Port"></span>
+            </div>
+        </div>
+        <div class="field-group">
+            <label asp-for="SecurityMode"></label>
+            <select asp-for="SecurityMode" asp-items="Html.GetEnumSelectList<FtpSecurityMode>()"></select>
+            <small>Explicit TLS is recommended. Avoid plain FTP on untrusted networks.</small>
+        </div>
+        <div class="field-group">
+            <label asp-for="Username"></label>
+            <input asp-for="Username" autocomplete="username" />
+            <span asp-validation-for="Username"></span>
+        </div>
+        <div class="field-group">
+            <label asp-for="Password">Password @(isEdit ? "(leave blank to keep current)" : "")</label>
+            <div class="password-wrap"><input asp-for="Password" autocomplete="new-password" /><button type="button" data-password-toggle>Show</button></div>
+            <span asp-validation-for="Password"></span>
+        </div>
+        <div class="field-group">
+            <label asp-for="RootPath"></label>
+            <input asp-for="RootPath" placeholder="/" />
+            <small>Users can only browse inside this starting folder.</small>
+            <span asp-validation-for="RootPath"></span>
+        </div>
+        <div class="form-actions"><a class="button button-ghost" asp-action="Index">Cancel</a><button class="button button-primary" type="submit">@(isEdit ? "Save changes" : "Save and connect") <span>→</span></button></div>
+    </form>
+</div>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }
