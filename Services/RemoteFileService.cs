@@ -31,7 +31,8 @@ public class RemoteFileService : IRemoteFileService
 
         return listing.Where(item => item.Type is FtpObjectType.File or FtpObjectType.Directory)
                       .Select(item => new RemoteFileItem(item.Name, CombineRelative(relativePath, item.Name),
-                          item.Type == FtpObjectType.Directory, item.Size, item.Modified, Path.GetExtension(item.Name).ToLowerInvariant()))
+                          item.Type == FtpObjectType.Directory, item.Size, item.Created, item.Modified,
+                          Path.GetExtension(item.Name).ToLowerInvariant()))
                       .OrderByDescending(item => item.IsDirectory)
                       .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
                       .ToList();

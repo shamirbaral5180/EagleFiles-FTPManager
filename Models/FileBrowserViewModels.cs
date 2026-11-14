@@ -12,7 +12,8 @@ public class FileBrowserViewModel
 
 public record BreadcrumbItem(string Name, string Path);
 
-public record RemoteFileItem(string Name, string Path, bool IsDirectory, long Size, DateTime Modified, string Extension)
+public record RemoteFileItem(string Name, string Path, bool IsDirectory, long Size, DateTime Created, DateTime Modified,
+    string Extension)
 {
     public string DisplaySize => IsDirectory ? "Folder" : FormatSize(Size);
     public string Category => FileTypeCatalog.GetCategory(Extension, IsDirectory);

@@ -43,6 +43,22 @@
         <button class="filter-chip" type="button" data-file-filter="document">Documents</button>
     </div>
     <div class="display-options">
+        <label class="size-picker collection-picker">Sort
+            <select data-file-sort aria-label="Sort files">
+                <option value="name">Name</option>
+                <option value="created">Date created</option>
+                <option value="modified">Date modified</option>
+            </select>
+        </label>
+        <button class="sort-direction" type="button" data-sort-direction data-direction="ascending" title="Ascending" aria-label="Sort ascending">↑</button>
+        <label class="size-picker collection-picker">Group
+            <select data-file-group aria-label="Group files">
+                <option value="none">None</option>
+                <option value="created">Date created</option>
+                <option value="type">Type</option>
+                <option value="name">Name</option>
+            </select>
+        </label>
         <label class="size-picker">Size
             <select data-grid-size aria-label="Thumbnail size">
                 <option value="small">Small</option>
@@ -87,7 +103,9 @@ else
             var fileLabel = string.IsNullOrWhiteSpace(item.Extension)
                 ? "FILE"
                 : item.Extension.TrimStart('.').ToUpperInvariant()[..Math.Min(4, item.Extension.TrimStart('.').Length)];
-            <article class="file-row media-card" data-file-item data-category="@item.Category" data-file-name="@item.Name.ToLowerInvariant()"
+            <article class="file-row media-card" data-file-item data-category="@item.Category" data-file-name="@item.Name" data-type-label="@item.TypeLabel"
+                     data-created="@(item.Created == DateTime.MinValue ? "" : item.Created.ToUniversalTime().ToString("O"))"
+                     data-modified="@(item.Modified == DateTime.MinValue ? "" : item.Modified.ToUniversalTime().ToString("O"))"
                      @if (!item.IsDirectory) { <text>data-viewer-item data-viewer-name="@item.Name" data-viewer-type="@item.Category" data-viewer-preview="@Url.Action("Preview", new { id = Model.Connection.Id, path = item.Path })" data-viewer-page="@Url.Action("Open", new { id = Model.Connection.Id, path = item.Path, version })" data-viewer-download="@Url.Action("Download", new { id = Model.Connection.Id, path = item.Path })"</text> }
                      @if (!item.IsDirectory && item.Category == "image") { <text>data-viewer-high="@Url.Action("Thumbnail", new { id = Model.Connection.Id, path = item.Path, width = 1600, version })"</text> }>
                 <a class="file-preview-tile" asp-action="@(item.IsDirectory ? "Index" : "Open")" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path" asp-route-version="@version" title="Open @item.Name" data-viewer-open="@(item.IsDirectory ? null : "true")">

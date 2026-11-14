@@ -119,6 +119,139 @@ if (sizePicker && fileContainer) {
     });
 }
 
+const fileSort = document.querySelector('[data-file-sort]');
+const fileGroup = document.querySelector('[data-file-group]');
+const sortDirection = document.querySelector('[data-sort-direction]');
+
+function getItemDate(item, field) {
+    const value = item.dataset[field];
+    const timestamp = value ? Date.parse(value) : Number.NaN;
+    return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function compareFileItems(left, right) {
+    const field = fileSort?.value || 'name';
+    const direction = sortDirection?.dataset.direction === 'descending' ? -1 : 1;
+    if (field === 'created' || field === 'modified') {
+        const leftDate = getItemDate(left, field);
+        const rightDate = getItemDate(right, field);
+        if (leftDate === null && rightDate !== null) {
+            return 1;
+        }
+        if (leftDate !== null && rightDate === null) {
+            return -1;
+        }
+        if (leftDate !== rightDate) {
+            return ((leftDate || 0) - (rightDate || 0)) * direction;
+        }
+    }
+    return left.dataset.fileName.localeCompare(right.dataset.fileName, undefined,
+        { numeric: true, sensitivity: 'base' }) * direction;
+}
+
+function getGroupDetails(item) {
+    const grouping = fileGroup?.value || 'none';
+    if (grouping === 'created') {
+        const timestamp = getItemDate(item, 'created');
+        if (timestamp === null) {
+            return { key: 'unknown', label: 'Unknown date', order: Number.NEGATIVE_INFINITY };
+        }
+        const date = new Date(timestamp);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        return { key, label: date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }), order: timestamp };
+    }
+    if (grouping === 'type') {
+        const labels = {
+            folder: 'Folders', image: 'Images', video: 'Videos', audio: 'Audio', pdf: 'PDF documents',
+            text: 'Text files', document: 'Documents', archive: 'Archives', other: 'Other files'
+        };
+        const label = labels[item.dataset.category] || 'Other files';
+        return { key: item.dataset.category, label, order: item.dataset.category === 'folder' ? '' : label };
+    }
+    if (grouping === 'name') {
+        const firstCharacter = item.dataset.fileName.trim().charAt(0).toUpperCase();
+        const label = /[A-Z0-9]/.test(firstCharacter) ? firstCharacter : '#';
+        return { key: label, label, order: label };
+    }
+    return { key: 'all', label: '', order: '' };
+}
+
+function renderFileCollection() {
+    if (!fileContainer) {
+        return;
+    }
+    fileContainer.querySelectorAll('[data-group-heading]').forEach(heading => heading.remove());
+    const allItems = [...fileContainer.querySelectorAll('[data-file-item]')];
+    const groups = new Map();
+    allItems.forEach(item => {
+        const details = getGroupDetails(item);
+        if (!groups.has(details.key)) {
+            groups.set(details.key, { ...details, items: [] });
+        }
+        groups.get(details.key).items.push(item);
+    });
+
+    const grouping = fileGroup?.value || 'none';
+    const orderedGroups = [...groups.values()].sort((left, right) => {
+        if (grouping === 'created') {
+            if (left.key === 'unknown') {
+                return 1;
+            }
+            if (right.key === 'unknown') {
+                return -1;
+            }
+            return right.order - left.order;
+        }
+        return String(left.order).localeCompare(String(right.order), undefined, { numeric: true, sensitivity: 'base' });
+    });
+    const fragment = document.createDocumentFragment();
+    orderedGroups.forEach(group => {
+        group.items.sort(compareFileItems);
+        if (grouping !== 'none') {
+            const heading = document.createElement('div');
+            heading.className = 'file-group-heading';
+            heading.dataset.groupHeading = '';
+            heading.hidden = !group.items.some(item => !item.hidden);
+            heading.textContent = group.label;
+            fragment.append(heading);
+        }
+        group.items.forEach(item => fragment.append(item));
+    });
+    fileContainer.insertBefore(fragment, fileContainer.querySelector('.folder-empty'));
+    document.dispatchEvent(new CustomEvent('eaglefiles-order-changed'));
+}
+
+if (fileSort && fileGroup && sortDirection) {
+    fileSort.value = localStorage.getItem('eaglefiles-file-sort') || 'name';
+    fileGroup.value = localStorage.getItem('eaglefiles-file-group') || 'none';
+    sortDirection.dataset.direction = localStorage.getItem('eaglefiles-sort-direction') || 'ascending';
+    function updateSortDirectionButton() {
+        const descending = sortDirection.dataset.direction === 'descending';
+        sortDirection.textContent = descending ? '↓' : '↑';
+        sortDirection.title = descending ? 'Descending' : 'Ascending';
+        sortDirection.setAttribute('aria-label', descending ? 'Sort descending' : 'Sort ascending');
+    }
+    updateSortDirectionButton();
+    fileSort.addEventListener('change', () => {
+        sortDirection.dataset.direction = fileSort.value === 'name' ? 'ascending' : 'descending';
+        localStorage.setItem('eaglefiles-file-sort', fileSort.value);
+        localStorage.setItem('eaglefiles-sort-direction', sortDirection.dataset.direction);
+        updateSortDirectionButton();
+        renderFileCollection();
+    });
+    fileGroup.addEventListener('change', () => {
+        localStorage.setItem('eaglefiles-file-group', fileGroup.value);
+        renderFileCollection();
+    });
+    sortDirection.addEventListener('click', () => {
+        sortDirection.dataset.direction = sortDirection.dataset.direction === 'ascending' ? 'descending' : 'ascending';
+        localStorage.setItem('eaglefiles-sort-direction', sortDirection.dataset.direction);
+        updateSortDirectionButton();
+        renderFileCollection();
+    });
+    renderFileCollection();
+}
+
 document.querySelectorAll('[data-file-filter]').forEach(button => {
     button.addEventListener('click', () => {
         const filter = button.dataset.fileFilter;
@@ -143,6 +276,7 @@ document.querySelectorAll('[data-file-filter]').forEach(button => {
         if (empty) {
             empty.hidden = visibleCount !== 0;
         }
+        renderFileCollection();
     });
 });
 
@@ -153,7 +287,7 @@ document.querySelectorAll('[data-thumbnail]').forEach(thumbnail => {
 
 const lightbox = document.querySelector('[data-media-lightbox]');
 if (lightbox) {
-    const items = [...document.querySelectorAll('[data-viewer-item]')];
+    let items = [...document.querySelectorAll('[data-viewer-item]:not([hidden])')];
     const mediaHost = lightbox.querySelector('[data-lightbox-media]');
     const stage = lightbox.querySelector('[data-lightbox-stage]');
     const loading = lightbox.querySelector('[data-lightbox-loading]');
@@ -167,6 +301,10 @@ if (lightbox) {
     let dragPointerX = 0;
     let dragPointerY = 0;
     let highResolutionRequest = 0;
+
+    document.addEventListener('eaglefiles-order-changed', () => {
+        items = [...document.querySelectorAll('[data-viewer-item]:not([hidden])')];
+    });
 
     function currentImage() {
         return mediaHost.querySelector('img');
