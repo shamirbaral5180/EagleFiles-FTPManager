@@ -295,6 +295,8 @@ if (lightbox) {
     let currentIndex = 0;
     let openingIndex = 0;
     let scale = 1;
+    let baseImageWidth = 0;
+    let baseImageHeight = 0;
     let imageOffsetX = 0;
     let imageOffsetY = 0;
     let imageDragging = false;
@@ -308,6 +310,20 @@ if (lightbox) {
 
     function currentImage() {
         return mediaHost.querySelector('img');
+    }
+
+    function calculateImageFit() {
+        const image = currentImage();
+        if (!image || !image.naturalWidth || !image.naturalHeight) {
+            return;
+        }
+        const horizontalMargin = window.innerWidth <= 620 ? 20 : 100;
+        const verticalMargin = window.innerWidth <= 620 ? 16 : 24;
+        const availableWidth = Math.max(1, stage.clientWidth - horizontalMargin);
+        const availableHeight = Math.max(1, stage.clientHeight - verticalMargin);
+        const fitScale = Math.min(1, availableWidth / image.naturalWidth, availableHeight / image.naturalHeight);
+        baseImageWidth = image.naturalWidth * fitScale;
+        baseImageHeight = image.naturalHeight * fitScale;
     }
 
     function fitCurrentVideo() {
@@ -327,7 +343,14 @@ if (lightbox) {
     function applyTransform() {
         const image = currentImage();
         if (image) {
-            image.style.transform = `translate(calc(-50% + ${imageOffsetX}px), calc(-50% + ${imageOffsetY}px)) scale(${scale})`;
+            if (!baseImageWidth || !baseImageHeight) {
+                calculateImageFit();
+            }
+            image.style.width = `${baseImageWidth * scale}px`;
+            image.style.height = `${baseImageHeight * scale}px`;
+            image.style.maxWidth = 'none';
+            image.style.maxHeight = 'none';
+            image.style.transform = `translate(calc(-50% + ${imageOffsetX}px), calc(-50% + ${imageOffsetY}px))`;
         }
     }
 
@@ -337,8 +360,8 @@ if (lightbox) {
             return { x: 0, y: 0 };
         }
         return {
-            x: Math.max(0, (image.offsetWidth * scale - stage.clientWidth) / 2),
-            y: Math.max(0, (image.offsetHeight * scale - stage.clientHeight) / 2)
+            x: Math.max(0, (image.offsetWidth - stage.clientWidth) / 2),
+            y: Math.max(0, (image.offsetHeight - stage.clientHeight) / 2)
         };
     }
 
@@ -352,7 +375,23 @@ if (lightbox) {
         }
     }
 
+    function maximumQualityScale() {
+        const image = currentImage();
+        const currentItem = items[currentIndex];
+        if (!image || !image.naturalWidth || !image.naturalHeight || !image.offsetWidth || !image.offsetHeight) {
+            return 1;
+        }
+        if (currentItem?.dataset.viewerName?.toLowerCase().endsWith('.svg')) {
+            return 8;
+        }
+        const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+        const horizontalScale = image.naturalWidth / Math.max(1, baseImageWidth * pixelRatio);
+        const verticalScale = image.naturalHeight / Math.max(1, baseImageHeight * pixelRatio);
+        return Math.max(1, Math.min(8, horizontalScale, verticalScale));
+    }
+
     function resetTransform() {
+        calculateImageFit();
         scale = 1;
         imageOffsetX = 0;
         imageOffsetY = 0;
@@ -360,7 +399,7 @@ if (lightbox) {
     }
 
     function setScale(nextScale) {
-        scale = Math.min(8, Math.max(0.5, nextScale));
+        scale = Math.min(maximumQualityScale(), Math.max(0.5, nextScale));
         constrainImagePosition();
         applyTransform();
     }
@@ -401,8 +440,15 @@ if (lightbox) {
             const image = document.createElement('img');
             image.alt = item.dataset.viewerName;
             image.draggable = false;
+            image.addEventListener('load', () => {
+                if (requestId === highResolutionRequest) {
+                    resetTransform();
+                }
+            });
             image.src = gridImage?.currentSrc || gridImage?.src || item.dataset.viewerHigh;
             mediaHost.append(image);
+            baseImageWidth = 0;
+            baseImageHeight = 0;
             resetTransform();
 
             if (item.dataset.viewerHigh && image.src !== new URL(item.dataset.viewerHigh, window.location.href).href) {
@@ -524,8 +570,14 @@ if (lightbox) {
             lightbox.requestFullscreen();
         }
     });
-    document.addEventListener('fullscreenchange', () => requestAnimationFrame(fitCurrentVideo));
-    window.addEventListener('resize', () => requestAnimationFrame(fitCurrentVideo));
+    document.addEventListener('fullscreenchange', () => requestAnimationFrame(() => {
+        resetTransform();
+        fitCurrentVideo();
+    }));
+    window.addEventListener('resize', () => requestAnimationFrame(() => {
+        resetTransform();
+        fitCurrentVideo();
+    }));
 
     stage.addEventListener('wheel', event => {
         if (!currentImage()) {

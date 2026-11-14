@@ -10,6 +10,8 @@ namespace FTP_WebApp.Services;
 public class ThumbnailService : IThumbnailService
 {
     private static readonly int[] AllowedWidths = [160, 320, 640, 960, 1600];
+    private static readonly HashSet<string> BrowserImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+        { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".avif" };
     private readonly IRemoteFileService _remoteFiles;
     private readonly ILogger<ThumbnailService> _logger;
     private readonly MediaOptions _options;
@@ -45,17 +47,22 @@ public class ThumbnailService : IThumbnailService
             return null;
         }
 
-        var normalizedWidth = AllowedWidths.OrderBy(candidate => Math.Abs(candidate - width)).First();
+        var fullPreview = category == "image" && width <= 0;
+        var browserOriginal = category == "image" && BrowserImageExtensions.Contains(extension);
+        var originalPreview = fullPreview && browserOriginal;
+        var normalizedWidth = fullPreview ? 0 : AllowedWidths.OrderBy(candidate => Math.Abs(candidate - width)).First();
         var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
-            $"{profile.Id}|{path}|{version}"))).ToLowerInvariant();
-        var masterPath = Path.Combine(_cachePath, $"{cacheKey}-master.jpg");
-        var cachedPath = normalizedWidth == 1600
-            ? masterPath
+            $"preview-v3|{_options.ThumbnailQuality}|{_options.PreviewQuality}|{profile.Id}|{path}|{version}")))
+            .ToLowerInvariant();
+        var fullPreviewPath = Path.Combine(_cachePath, $"{cacheKey}-full{(browserOriginal ? ".original" : ".jpg")}");
+        var cachedPath = fullPreview
+            ? fullPreviewPath
             : Path.Combine(_cachePath, $"{cacheKey}-{normalizedWidth}.jpg");
-        var etag = $"\"{cacheKey}-{normalizedWidth}\"";
+        var etag = $"\"{cacheKey}-{(fullPreview ? "full" : normalizedWidth)}\"";
+        var contentType = fullPreview && originalPreview ? GetBrowserImageContentType(extension) : "image/jpeg";
         if (File.Exists(cachedPath))
         {
-            return new ThumbnailFile(cachedPath, "image/jpeg", etag);
+            return new ThumbnailFile(cachedPath, contentType, etag);
         }
 
         var itemSlot = _coordinator.GetItemSlot(cacheKey);
@@ -64,43 +71,50 @@ public class ThumbnailService : IThumbnailService
         {
             if (File.Exists(cachedPath))
             {
-                return new ThumbnailFile(cachedPath, "image/jpeg", etag);
+                return new ThumbnailFile(cachedPath, contentType, etag);
             }
 
             await _coordinator.Slots.WaitAsync(cancellationToken);
             try
             {
-                var temporaryMaster = Path.Combine(_cachePath, $".{cacheKey}-{Guid.NewGuid():N}.master.tmp.jpg");
                 var temporaryOutput = Path.Combine(_cachePath, $".{cacheKey}-{Guid.NewGuid():N}.tmp.jpg");
                 try
                 {
-                    if (!File.Exists(masterPath))
+                    if (category == "image" && !fullPreview && File.Exists(fullPreviewPath))
+                    {
+                        await GenerateDerivedThumbnailAsync(fullPreviewPath, temporaryOutput, normalizedWidth,
+                            cancellationToken);
+                    }
+                    else
                     {
                         var downloaded = await _remoteFiles.DownloadAsync(profile, path, cancellationToken);
                         await using (downloaded.Stream)
                         {
                             if (category == "image")
                             {
-                                await GenerateImageThumbnailAsync(downloaded.Stream, temporaryMaster, 1600, extension,
-                                    cancellationToken);
+                                if (originalPreview)
+                                {
+                                    await using var output = new FileStream(temporaryOutput, FileMode.Create,
+                                        FileAccess.Write, FileShare.None, 81920, FileOptions.Asynchronous);
+                                    await downloaded.Stream.CopyToAsync(output, cancellationToken);
+                                }
+                                else
+                                {
+                                    await GenerateImageAsync(downloaded.Stream, temporaryOutput,
+                                        fullPreview ? null : normalizedWidth, extension,
+                                        fullPreview ? _options.PreviewQuality : _options.ThumbnailQuality, cancellationToken);
+                                }
                             }
                             else
                             {
-                                await GenerateVideoThumbnailAsync(downloaded.Stream, temporaryMaster, 1600, cancellationToken);
+                                await GenerateVideoThumbnailAsync(downloaded.Stream, temporaryOutput, normalizedWidth,
+                                    cancellationToken);
                             }
                         }
-
-                        File.Move(temporaryMaster, masterPath, true);
                     }
 
-                    if (normalizedWidth == 1600)
-                    {
-                        return new ThumbnailFile(masterPath, "image/jpeg", etag);
-                    }
-
-                    await GenerateDerivedThumbnailAsync(masterPath, temporaryOutput, normalizedWidth, cancellationToken);
                     File.Move(temporaryOutput, cachedPath, true);
-                    return new ThumbnailFile(cachedPath, "image/jpeg", etag);
+                    return new ThumbnailFile(cachedPath, contentType, etag);
                 }
                 catch (Exception exception) when (exception is MagickException or InvalidOperationException or IOException)
                 {
@@ -109,10 +123,6 @@ public class ThumbnailService : IThumbnailService
                 }
                 finally
                 {
-                    if (File.Exists(temporaryMaster))
-                    {
-                        File.Delete(temporaryMaster);
-                    }
                     if (File.Exists(temporaryOutput))
                     {
                         File.Delete(temporaryOutput);
@@ -143,23 +153,25 @@ public class ThumbnailService : IThumbnailService
         await image.WriteAsync(outputPath, cancellationToken);
     }
 
-    private async Task GenerateImageThumbnailAsync(Stream source, string outputPath, int width, string extension,
-        CancellationToken cancellationToken)
+    private static async Task GenerateImageAsync(Stream source, string outputPath, int? width, string extension,
+        int quality, CancellationToken cancellationToken)
     {
         var format = ResolveMagickFormat(extension);
         using var image = format.HasValue ? new MagickImage(source, format.Value) : new MagickImage(source);
         image.AutoOrient();
-        var geometry = new MagickGeometry((uint)width, (uint)width)
+        if (width.HasValue)
         {
-            IgnoreAspectRatio = false,
-            Greater = true
-        };
-        image.Resize(geometry);
+            image.Resize(new MagickGeometry((uint)width.Value, (uint)width.Value)
+            {
+                IgnoreAspectRatio = false,
+                Greater = true
+            });
+        }
         image.Strip();
         image.BackgroundColor = MagickColors.White;
         image.Alpha(AlphaAction.Remove);
         image.Format = MagickFormat.Jpeg;
-        image.Quality = (uint)Math.Clamp(_options.ThumbnailQuality, 50, 92);
+        image.Quality = (uint)Math.Clamp(quality, 50, 100);
         await image.WriteAsync(outputPath, cancellationToken);
     }
 
@@ -173,6 +185,21 @@ public class ThumbnailService : IThumbnailService
             _ => extension.TrimStart('.')
         };
         return Enum.TryParse<MagickFormat>(formatName, true, out var format) ? format : null;
+    }
+
+    private static string GetBrowserImageContentType(string extension)
+    {
+        return extension.ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            ".svg" => "image/svg+xml",
+            ".avif" => "image/avif",
+            _ => "application/octet-stream"
+        };
     }
 
     private async Task GenerateVideoThumbnailAsync(Stream source, string outputPath, int width,

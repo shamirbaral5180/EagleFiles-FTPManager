@@ -64,6 +64,7 @@ Image thumbnails are converted to cached JPEG files automatically. Video poster 
      "ThumbnailCachePath": "App_Data/ThumbnailCache",
      "FfmpegPath": "C:\\Tools\\ffmpeg\\bin\\ffmpeg.exe",
      "ThumbnailQuality": 78,
+     "PreviewQuality": 100,
      "MaxConcurrentGenerators": 2
    }
    ```

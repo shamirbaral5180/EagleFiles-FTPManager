@@ -107,7 +107,7 @@ else
                      data-created="@(item.Created == DateTime.MinValue ? "" : item.Created.ToUniversalTime().ToString("O"))"
                      data-modified="@(item.Modified == DateTime.MinValue ? "" : item.Modified.ToUniversalTime().ToString("O"))"
                      @if (!item.IsDirectory) { <text>data-viewer-item data-viewer-name="@item.Name" data-viewer-type="@item.Category" data-viewer-preview="@Url.Action("Preview", new { id = Model.Connection.Id, path = item.Path })" data-viewer-page="@Url.Action("Open", new { id = Model.Connection.Id, path = item.Path, version })" data-viewer-download="@Url.Action("Download", new { id = Model.Connection.Id, path = item.Path })"</text> }
-                     @if (!item.IsDirectory && item.Category == "image") { <text>data-viewer-high="@Url.Action("Thumbnail", new { id = Model.Connection.Id, path = item.Path, width = 1600, version })"</text> }>
+                     @if (!item.IsDirectory && item.Category == "image") { <text>data-viewer-high="@Url.Action("Thumbnail", new { id = Model.Connection.Id, path = item.Path, width = 0, version })"</text> }>
                 <a class="file-preview-tile" asp-action="@(item.IsDirectory ? "Index" : "Open")" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path" asp-route-version="@version" title="Open @item.Name" data-viewer-open="@(item.IsDirectory ? "false" : "true")">
                     @if (item.IsDirectory)
                     {
