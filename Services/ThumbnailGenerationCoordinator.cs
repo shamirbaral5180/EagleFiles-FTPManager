@@ -1,6 +1,6 @@
+using System.Collections.Concurrent;
 using FTP_WebApp.Models;
 using Microsoft.Extensions.Options;
-using System.Collections.Concurrent;
 
 namespace FTP_WebApp.Services;
 
@@ -8,12 +8,18 @@ public class ThumbnailGenerationCoordinator
 {
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _itemSlots = new();
 
-    public ThumbnailGenerationCoordinator(IOptions<MediaOptions> options)
+    public ThumbnailGenerationCoordinator(IOptions<MediaOptions> options, ILogger<ThumbnailGenerationCoordinator> logger)
     {
-        Slots = new SemaphoreSlim(Math.Clamp(options.Value.MaxConcurrentGenerators, 1, 4));
+        var configuredLimit = Math.Clamp(options.Value.MaxConcurrentGenerators, 1, 16);
+        Capacity = Math.Min(configuredLimit, Math.Max(1, Environment.ProcessorCount));
+        Slots = new SemaphoreSlim(Capacity, Capacity);
+        logger.LogInformation("Thumbnail generation concurrency is {Capacity}. Configured limit: {ConfiguredLimit}; available processors: {ProcessorCount}.",
+            Capacity, configuredLimit, Environment.ProcessorCount);
     }
 
     public SemaphoreSlim Slots { get; }
+
+    public int Capacity { get; }
 
     public SemaphoreSlim GetItemSlot(string cacheKey)
     {

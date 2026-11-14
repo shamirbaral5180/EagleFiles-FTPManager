@@ -2,6 +2,8 @@
 
 EagleFiles is a responsive ASP.NET Core 10 MVC file manager for FTP and FTPS servers. It uses an original eagle-themed interface designed for desktop and mobile screens.
 
+![EagleFiles web application](docs/images/eaglefiles-home.png)
+
 See [CHALLENGES.md](CHALLENGES.md) for the implementation and deployment problems solved during development.
 
 ## Current features
@@ -67,7 +69,7 @@ Image thumbnails are converted to cached JPEG files automatically. Video poster 
      "FfmpegPath": "C:\\Tools\\ffmpeg\\bin\\ffmpeg.exe",
      "ThumbnailQuality": 78,
      "PreviewQuality": 100,
-     "MaxConcurrentGenerators": 2
+      "MaxConcurrentGenerators": 8
    }
    ```
 
