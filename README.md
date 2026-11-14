@@ -14,6 +14,7 @@ See [CHALLENGES.md](CHALLENGES.md) for the implementation and deployment problem
 - Root-folder boundary for every connection
 - Folder browsing, search, list view, and media-focused grid view
 - Small, medium, large, and very large thumbnail sizes saved per device
+- Viewport-prioritized thumbnail loading so visible files are fetched first
 - Image thumbnails plus in-app image, video, audio, PDF, and text previews
 - File-type filters for folders, images, videos, and documents
 - Upload (up to 512 MB) and icon-based downloads

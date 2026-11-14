@@ -281,52 +281,141 @@ document.querySelectorAll('[data-file-filter]').forEach(button => {
 });
 
 function loadBrowserVideoFrame(thumbnail) {
-    const previewUrl = thumbnail.dataset.videoPreview;
-    const tile = thumbnail.closest('.file-preview-tile');
-    if (!previewUrl || thumbnail.dataset.browserFallback === 'loading') {
-        tile?.classList.add('thumbnail-failed');
+    return new Promise(resolve => {
+        const previewUrl = thumbnail.dataset.videoPreview;
+        const tile = thumbnail.closest('.file-preview-tile');
+        if (!previewUrl) {
+            tile?.classList.add('thumbnail-failed');
+            resolve(false);
+            return;
+        }
+
+        const video = document.createElement('video');
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = 'auto';
+        let completed = false;
+
+        const finish = success => {
+            if (completed) {
+                return;
+            }
+            completed = true;
+            clearTimeout(timeout);
+            video.removeAttribute('src');
+            video.load();
+            tile?.classList.toggle('thumbnail-failed', !success);
+            resolve(success);
+        };
+        const timeout = window.setTimeout(() => finish(false), 60000);
+
+        video.addEventListener('loadeddata', () => {
+            try {
+                const maximumWidth = 640;
+                const scale = Math.min(1, maximumWidth / video.videoWidth);
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+                canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+                const context = canvas.getContext('2d');
+                if (!context) {
+                    finish(false);
+                    return;
+                }
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                delete thumbnail.dataset.videoPreview;
+                thumbnail.src = canvas.toDataURL('image/jpeg', 0.76);
+                finish(true);
+            } catch {
+                finish(false);
+            }
+        }, { once: true });
+        video.addEventListener('error', () => finish(false), { once: true });
+        video.src = `${previewUrl}#t=0.01`;
+        video.load();
+    });
+}
+
+const queuedThumbnails = [...document.querySelectorAll('[data-thumbnail][data-thumbnail-src]')];
+let activeThumbnail = null;
+
+function thumbnailPriority(thumbnail) {
+    const bounds = thumbnail.getBoundingClientRect();
+    const inViewport = bounds.bottom > 0 && bounds.top < window.innerHeight;
+    const kind = thumbnail.dataset.thumbnailKind === 'image' ? 0 : 1;
+    const distance = Math.abs((bounds.top + bounds.bottom) / 2 - window.innerHeight / 2);
+    return [inViewport ? 0 : 1, kind, distance];
+}
+
+function compareThumbnailPriority(left, right) {
+    const leftPriority = thumbnailPriority(left);
+    const rightPriority = thumbnailPriority(right);
+    for (let index = 0; index < leftPriority.length; index++) {
+        if (leftPriority[index] !== rightPriority[index]) {
+            return leftPriority[index] - rightPriority[index];
+        }
+    }
+    return 0;
+}
+
+function loadQueuedThumbnail(thumbnail) {
+    return new Promise(resolve => {
+        const tile = thumbnail.closest('.file-preview-tile');
+        const loaded = () => {
+            cleanup();
+            tile?.classList.remove('thumbnail-failed');
+            resolve();
+        };
+        const failed = async () => {
+            cleanup();
+            await loadBrowserVideoFrame(thumbnail);
+            resolve();
+        };
+        const cleanup = () => {
+            thumbnail.removeEventListener('load', loaded);
+            thumbnail.removeEventListener('error', failed);
+        };
+
+        thumbnail.addEventListener('load', loaded, { once: true });
+        thumbnail.addEventListener('error', failed, { once: true });
+        thumbnail.src = thumbnail.dataset.thumbnailSrc;
+    });
+}
+
+async function processThumbnailQueue() {
+    if (activeThumbnail) {
         return;
     }
 
-    thumbnail.dataset.browserFallback = 'loading';
-    const video = document.createElement('video');
-    video.muted = true;
-    video.playsInline = true;
-    video.preload = 'auto';
+    const next = queuedThumbnails
+        .filter(thumbnail => thumbnail.dataset.thumbnailState === 'queued' &&
+            !thumbnail.closest('[data-file-item]')?.hidden)
+        .sort(compareThumbnailPriority)[0];
+    if (!next) {
+        return;
+    }
 
-    const fail = () => {
-        video.removeAttribute('src');
-        video.load();
-        tile?.classList.add('thumbnail-failed');
-    };
-
-    video.addEventListener('loadeddata', () => {
-        try {
-            const maximumWidth = 640;
-            const scale = Math.min(1, maximumWidth / video.videoWidth);
-            const canvas = document.createElement('canvas');
-            canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-            canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-            delete thumbnail.dataset.videoPreview;
-            thumbnail.src = canvas.toDataURL('image/jpeg', 0.76);
-            tile?.classList.remove('thumbnail-failed');
-            video.removeEventListener('error', fail);
-            video.removeAttribute('src');
-            video.load();
-        } catch {
-            fail();
-        }
-    }, { once: true });
-    video.addEventListener('error', fail, { once: true });
-    video.src = `${previewUrl}#t=0.01`;
-    video.load();
+    activeThumbnail = next;
+    next.dataset.thumbnailState = 'loading';
+    await loadQueuedThumbnail(next);
+    next.dataset.thumbnailState = 'complete';
+    activeThumbnail = null;
+    processThumbnailQueue();
 }
 
-document.querySelectorAll('[data-thumbnail]').forEach(thumbnail => {
-    thumbnail.addEventListener('load', () => thumbnail.closest('.file-preview-tile')?.classList.remove('thumbnail-failed'));
-    thumbnail.addEventListener('error', () => loadBrowserVideoFrame(thumbnail));
-});
+if ('IntersectionObserver' in window) {
+    const thumbnailObserver = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting && !entry.target.dataset.thumbnailState) {
+                entry.target.dataset.thumbnailState = 'queued';
+            }
+        });
+        processThumbnailQueue();
+    }, { rootMargin: '400px 0px', threshold: 0.01 });
+    queuedThumbnails.forEach(thumbnail => thumbnailObserver.observe(thumbnail));
+} else {
+    queuedThumbnails.forEach(thumbnail => thumbnail.dataset.thumbnailState = 'queued');
+    processThumbnailQueue();
+}
 
 const lightbox = document.querySelector('[data-media-lightbox]');
 if (lightbox) {

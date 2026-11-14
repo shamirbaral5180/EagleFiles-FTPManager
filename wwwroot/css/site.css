@@ -303,6 +303,7 @@ button { color: inherit; }
 .type-art.archive { color: #a46b0e; background: linear-gradient(145deg, #ffe9b9, #fffaf0); }
 .thumbnail-fallback { position: absolute; z-index: 0; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 .media-thumbnail { position: absolute; z-index: 1; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
+.media-thumbnail:not([src]) { visibility: hidden; }
 .thumbnail-failed > .media-thumbnail, .thumbnail-failed .video-art > .media-thumbnail { display: none; }
 .media-browser[data-display="grid"] .file-name { display: flex; max-width: 100%; padding: 13px 48px 14px 14px; overflow: hidden; }
 .media-browser[data-display="grid"] .file-name .file-icon { display: none; }

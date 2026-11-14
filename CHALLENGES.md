@@ -10,7 +10,7 @@ This document records the main implementation and deployment problems resolved w
 - **Limited media navigation:** Added fullscreen viewing, previous/next navigation, keyboard controls, and high-resolution zoom.
 - **Blurry enlarged images:** Kept small cached thumbnails for the grid while serving original browser-supported images when opened.
 - **Unsupported image formats:** Added full-size, 100%-quality JPEG conversion for formats browsers cannot display directly.
-- **Slow thumbnail generation:** Added persistent thumbnail caching, file-version cache keys, and bounded concurrent generation.
+- **Slow thumbnail generation:** Added persistent thumbnail caching, file-version cache keys, bounded server generation, and a serial viewport-aware browser queue that requests visible images before videos and off-screen files.
 - **Video thumbnail support:** Added FFmpeg discovery through configuration, environment variables, `PATH`, and common installation locations, startup diagnostics, and a first-frame fallback for short videos while retaining safe file-type placeholders when conversion is unavailable.
 
 ## Authentication and protected data
