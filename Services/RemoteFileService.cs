@@ -7,11 +7,13 @@ namespace FTP_WebApp.Services;
 public class RemoteFileService : IRemoteFileService
 {
     private readonly IConnectionProfileService _profiles;
+    private readonly ILogger<RemoteFileService> _logger;
     private readonly FileExtensionContentTypeProvider _contentTypes = new();
 
-    public RemoteFileService(IConnectionProfileService profiles)
+    public RemoteFileService(IConnectionProfileService profiles, ILogger<RemoteFileService> logger)
     {
         _profiles = profiles;
+        _logger = logger;
     }
 
     public async Task TestConnectionAsync(FtpConnectionProfile profile, CancellationToken cancellationToken = default)
@@ -26,16 +28,32 @@ public class RemoteFileService : IRemoteFileService
         var relativePath = NormalizeRelativePath(path);
         var remotePath = ToRemotePath(profile, relativePath);
         await using var client = CreateClient(profile);
-        await client.Connect(cancellationToken);
-        var listing = await client.GetListing(remotePath, FtpListOption.Modify | FtpListOption.Size, cancellationToken);
+        var stage = "connection/login";
+        try
+        {
+            _logger.LogInformation("FTP connection starting. Profile {ProfileId}; host {Host}; port {Port}; security {SecurityMode}; encryption {EncryptionMode}.",
+                profile.Id, profile.Host, profile.Port, profile.SecurityMode, client.Config.EncryptionMode);
+            await client.Connect(cancellationToken);
+            stage = "passive directory listing";
+            _logger.LogInformation("FTP login succeeded for profile {ProfileId}. Starting passive directory listing.", profile.Id);
+            var listing = await client.GetListing(remotePath, FtpListOption.Modify | FtpListOption.Size, cancellationToken);
+            _logger.LogInformation("FTP listing succeeded for profile {ProfileId}: {ItemCount} entries.", profile.Id, listing.Length);
 
-        return listing.Where(item => item.Type is FtpObjectType.File or FtpObjectType.Directory)
+            return listing.Where(item => item.Type is FtpObjectType.File or FtpObjectType.Directory)
                       .Select(item => new RemoteFileItem(item.Name, CombineRelative(relativePath, item.Name),
                           item.Type == FtpObjectType.Directory, item.Size, item.Created, item.Modified,
                           Path.GetExtension(item.Name).ToLowerInvariant()))
                       .OrderByDescending(item => item.IsDirectory)
-                      .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
-                      .ToList();
+                       .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+                       .ToList();
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or System.Net.Sockets.SocketException
+            or System.Security.Authentication.AuthenticationException or FluentFTP.Exceptions.FtpException)
+        {
+            _logger.LogError(exception, "FTP profile {ProfileId} failed during {Stage}. Host {Host}; port {Port}; security {SecurityMode}.",
+                profile.Id, stage, profile.Host, profile.Port, profile.SecurityMode);
+            throw;
+        }
     }
 
     public async Task<DownloadedRemoteFile> DownloadAsync(FtpConnectionProfile profile, string path,

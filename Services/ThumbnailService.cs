@@ -20,15 +20,14 @@ public class ThumbnailService : IThumbnailService
     private readonly ThumbnailGenerationCoordinator _coordinator;
 
     public ThumbnailService(IRemoteFileService remoteFiles, IWebHostEnvironment environment,
-        IOptions<MediaOptions> options, ILogger<ThumbnailService> logger, ThumbnailGenerationCoordinator coordinator)
+        IOptions<MediaOptions> options, ILogger<ThumbnailService> logger, ThumbnailGenerationCoordinator coordinator,
+        IStoragePathProvider storagePaths)
     {
         _remoteFiles = remoteFiles;
         _logger = logger;
         _options = options.Value;
         _coordinator = coordinator;
-        _cachePath = Path.IsPathRooted(_options.ThumbnailCachePath)
-            ? _options.ThumbnailCachePath
-            : Path.GetFullPath(Path.Combine(environment.ContentRootPath, _options.ThumbnailCachePath));
+        _cachePath = storagePaths.ResolvePath(_options.ThumbnailCachePath);
         _ffmpegPath = ResolveExecutable(_options.FfmpegPath, environment.ContentRootPath);
         Directory.CreateDirectory(_cachePath);
     }

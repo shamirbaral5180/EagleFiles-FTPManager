@@ -2,6 +2,8 @@
 
 EagleFiles is a responsive ASP.NET Core 10 MVC file manager for FTP and FTPS servers. It uses an original eagle-themed interface designed for desktop and mobile screens.
 
+See [CHALLENGES.md](CHALLENGES.md) for the implementation and deployment problems solved during development.
+
 ## Current features
 
 - ASP.NET Core Identity accounts

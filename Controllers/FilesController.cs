@@ -36,6 +36,12 @@ public class FilesController : Controller
 
             return View(CreateViewModel(profile, normalizedPath, search, items));
         }
+        catch (System.Security.Authentication.AuthenticationException)
+        {
+            ViewData["ConnectionError"] = "The FTP TLS handshake failed.";
+            ViewData["ConnectionErrorDetail"] = "For a plain FTP server on port 21, select PlainFtp. A TLS frame error can indicate the wrong security mode or port; a certificate rejection requires checking certificate trust and host name. See the application log for the specific cause. TLS is never silently downgraded.";
+            return View(CreateViewModel(profile, normalizedPath, search, []));
+        }
         catch (Exception exception) when (exception is IOException or TimeoutException or System.Net.Sockets.SocketException
                                          or FluentFTP.Exceptions.FtpException)
         {
