@@ -74,6 +74,10 @@ Image thumbnails are converted to cached JPEG files automatically. Video poster 
 3. Grant `IIS AppPool\EagleFiles` Read & Execute permission on the FFmpeg directory.
 4. Recycle the EagleFiles application pool.
 
+EagleFiles discovers FFmpeg through `Media:FfmpegPath`, the `EAGLEFILES_FFMPEG_PATH` environment variable, the process `PATH`, or the recommended `C:\Tools\ffmpeg\bin\ffmpeg.exe` location. At startup, the application log states whether video thumbnail generation is enabled and which executable it found.
+
+When FFmpeg is unavailable, the grid also attempts a browser-side first-frame thumbnail for browser-supported MP4, WebM, Ogg, MOV, and M4V files. FFmpeg remains recommended because its cached thumbnails are faster on later visits and support more video formats and codecs.
+
 Generated image and video thumbnails are cached under `App_Data/ThumbnailCache`. A changed file receives a new cache key based on its remote size and modified timestamp. If a format is not supported by ImageMagick or FFmpeg, EagleFiles displays its file-type tile instead of a broken preview.
 
 ## Connection security

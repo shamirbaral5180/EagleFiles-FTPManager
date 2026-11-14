@@ -11,7 +11,7 @@ This document records the main implementation and deployment problems resolved w
 - **Blurry enlarged images:** Kept small cached thumbnails for the grid while serving original browser-supported images when opened.
 - **Unsupported image formats:** Added full-size, 100%-quality JPEG conversion for formats browsers cannot display directly.
 - **Slow thumbnail generation:** Added persistent thumbnail caching, file-version cache keys, and bounded concurrent generation.
-- **Video thumbnail support:** Added optional FFmpeg integration while retaining safe file-type placeholders when conversion is unavailable.
+- **Video thumbnail support:** Added FFmpeg discovery through configuration, environment variables, `PATH`, and common installation locations, startup diagnostics, and a first-frame fallback for short videos while retaining safe file-type placeholders when conversion is unavailable.
 
 ## Authentication and protected data
 

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="EagleFiles">
+  <defs>
+    <linearGradient id="background" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2d9aff"/>
+      <stop offset="1" stop-color="#071b33"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="18" y1="14" x2="47" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dceeff"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#background)" d="M15 4h34c6.1 0 11 4.9 11 11v34c0 6.1-4.9 11-11 11H15C8.9 60 4 55.1 4 49V15C4 8.9 8.9 4 15 4Z"/>
+  <path fill="#ffffff" fill-opacity=".13" d="M10 18 31 8l-9 15L10 28l8-7-8-3Zm44 0L33 8l9 15 12 5-8-7 8-3Z"/>
+  <path fill="url(#accent)" d="M23 16h25l-2.2 8H31.6l-1.2 5H43l-2 7H28.5l-1.2 5H42l-2.2 8H15l8-33Z"/>
+  <path fill="#56adff" d="m42 41 8 4-11 4 3-8Z"/>
+</svg>

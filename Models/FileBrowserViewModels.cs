@@ -57,6 +57,8 @@ public static class FileTypeCatalog
     private static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
         { ".mp4", ".webm", ".ogg", ".mov", ".m4v", ".avi", ".mkv", ".wmv", ".flv", ".mpeg", ".mpg", ".3gp", ".ts",
             ".mts", ".m2ts" };
+    private static readonly HashSet<string> BrowserVideoExtensions = new(StringComparer.OrdinalIgnoreCase)
+        { ".mp4", ".webm", ".ogg", ".mov", ".m4v" };
     private static readonly HashSet<string> AudioExtensions = new(StringComparer.OrdinalIgnoreCase)
         { ".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac" };
     private static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -101,6 +103,11 @@ public static class FileTypeCatalog
             return "archive";
         }
         return "other";
+    }
+
+    public static bool CanBrowserPreviewVideo(string extension)
+    {
+        return BrowserVideoExtensions.Contains(extension);
     }
 
     public static string GetTypeLabel(string extension, bool isDirectory = false)

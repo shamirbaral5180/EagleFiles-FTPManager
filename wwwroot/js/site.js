@@ -280,9 +280,52 @@ document.querySelectorAll('[data-file-filter]').forEach(button => {
     });
 });
 
+function loadBrowserVideoFrame(thumbnail) {
+    const previewUrl = thumbnail.dataset.videoPreview;
+    const tile = thumbnail.closest('.file-preview-tile');
+    if (!previewUrl || thumbnail.dataset.browserFallback === 'loading') {
+        tile?.classList.add('thumbnail-failed');
+        return;
+    }
+
+    thumbnail.dataset.browserFallback = 'loading';
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+
+    const fail = () => {
+        video.removeAttribute('src');
+        video.load();
+        tile?.classList.add('thumbnail-failed');
+    };
+
+    video.addEventListener('loadeddata', () => {
+        try {
+            const maximumWidth = 640;
+            const scale = Math.min(1, maximumWidth / video.videoWidth);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+            canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            delete thumbnail.dataset.videoPreview;
+            thumbnail.src = canvas.toDataURL('image/jpeg', 0.76);
+            tile?.classList.remove('thumbnail-failed');
+            video.removeEventListener('error', fail);
+            video.removeAttribute('src');
+            video.load();
+        } catch {
+            fail();
+        }
+    }, { once: true });
+    video.addEventListener('error', fail, { once: true });
+    video.src = `${previewUrl}#t=0.01`;
+    video.load();
+}
+
 document.querySelectorAll('[data-thumbnail]').forEach(thumbnail => {
     thumbnail.addEventListener('load', () => thumbnail.closest('.file-preview-tile')?.classList.remove('thumbnail-failed'));
-    thumbnail.addEventListener('error', () => thumbnail.closest('.file-preview-tile')?.classList.add('thumbnail-failed'));
+    thumbnail.addEventListener('error', () => loadBrowserVideoFrame(thumbnail));
 });
 
 const lightbox = document.querySelector('[data-media-lightbox]');

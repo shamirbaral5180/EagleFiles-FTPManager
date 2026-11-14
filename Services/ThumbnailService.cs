@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
@@ -30,6 +31,16 @@ public class ThumbnailService : IThumbnailService
         _cachePath = storagePaths.ResolvePath(_options.ThumbnailCachePath);
         _ffmpegPath = ResolveExecutable(_options.FfmpegPath, environment.ContentRootPath);
         Directory.CreateDirectory(_cachePath);
+
+        if (_ffmpegPath is null)
+        {
+            _logger.LogWarning("Video thumbnails are disabled because FFmpeg was not found. Configure Media:FfmpegPath or " +
+                "EAGLEFILES_FFMPEG_PATH with the full path to ffmpeg.exe.");
+        }
+        else
+        {
+            _logger.LogInformation("Video thumbnail generation is enabled with FFmpeg at {FfmpegPath}.", _ffmpegPath);
+        }
     }
 
     public async Task<ThumbnailFile?> GetAsync(FtpConnectionProfile profile, string path, int width, string? version,
@@ -115,7 +126,7 @@ public class ThumbnailService : IThumbnailService
                     File.Move(temporaryOutput, cachedPath, true);
                     return new ThumbnailFile(cachedPath, contentType, etag);
                 }
-                catch (Exception exception) when (exception is MagickException or InvalidOperationException or IOException)
+                catch (Exception exception) when (exception is MagickException or InvalidOperationException or IOException or Win32Exception)
                 {
                     _logger.LogWarning(exception, "Could not generate a thumbnail for {RemotePath}", path);
                     return null;
@@ -209,9 +220,30 @@ public class ThumbnailService : IThumbnailService
             throw new InvalidOperationException("FFmpeg is not configured for video thumbnails.");
         }
 
+        var firstAttemptError = await RunFfmpegAsync(inputFile.Name, outputPath, width, "00:00:01", cancellationToken);
+        if (firstAttemptError is null)
+        {
+            return;
+        }
+
+        if (File.Exists(outputPath))
+        {
+            File.Delete(outputPath);
+        }
+
+        var fallbackError = await RunFfmpegAsync(inputFile.Name, outputPath, width, null, cancellationToken);
+        if (fallbackError is not null)
+        {
+            throw new InvalidOperationException($"FFmpeg could not generate the video poster. {fallbackError}".Trim());
+        }
+    }
+
+    private async Task<string?> RunFfmpegAsync(string inputPath, string outputPath, int width, string? seek,
+        CancellationToken cancellationToken)
+    {
         var startInfo = new ProcessStartInfo
         {
-            FileName = _ffmpegPath,
+            FileName = _ffmpegPath!,
             RedirectStandardError = true,
             RedirectStandardOutput = true,
             UseShellExecute = false,
@@ -220,12 +252,18 @@ public class ThumbnailService : IThumbnailService
         startInfo.ArgumentList.Add("-hide_banner");
         startInfo.ArgumentList.Add("-loglevel");
         startInfo.ArgumentList.Add("error");
-        startInfo.ArgumentList.Add("-ss");
-        startInfo.ArgumentList.Add("00:00:01");
+        if (seek is not null)
+        {
+            startInfo.ArgumentList.Add("-ss");
+            startInfo.ArgumentList.Add(seek);
+        }
         startInfo.ArgumentList.Add("-i");
-        startInfo.ArgumentList.Add(inputFile.Name);
+        startInfo.ArgumentList.Add(inputPath);
         startInfo.ArgumentList.Add("-frames:v");
         startInfo.ArgumentList.Add("1");
+        startInfo.ArgumentList.Add("-an");
+        startInfo.ArgumentList.Add("-sn");
+        startInfo.ArgumentList.Add("-dn");
         startInfo.ArgumentList.Add("-vf");
         startInfo.ArgumentList.Add($"scale={width}:-2:force_original_aspect_ratio=decrease");
         startInfo.ArgumentList.Add("-q:v");
@@ -240,12 +278,24 @@ public class ThumbnailService : IThumbnailService
         var error = await errorTask;
         if (process.ExitCode != 0 || !File.Exists(outputPath))
         {
-            throw new InvalidOperationException($"FFmpeg could not generate the video poster. {error}".Trim());
+            return string.IsNullOrWhiteSpace(error) ? $"FFmpeg exited with code {process.ExitCode}." : error.Trim();
         }
+
+        return null;
     }
 
     private static string? ResolveExecutable(string configuredPath, string contentRootPath)
     {
+        var environmentPath = Environment.GetEnvironmentVariable("EAGLEFILES_FFMPEG_PATH");
+        if (!string.IsNullOrWhiteSpace(environmentPath))
+        {
+            var resolvedEnvironmentPath = Environment.ExpandEnvironmentVariables(environmentPath.Trim());
+            if (File.Exists(resolvedEnvironmentPath))
+            {
+                return resolvedEnvironmentPath;
+            }
+        }
+
         if (string.IsNullOrWhiteSpace(configuredPath))
         {
             return null;
@@ -270,6 +320,21 @@ public class ThumbnailService : IThumbnailService
             if (File.Exists(pathCandidate))
             {
                 return pathCandidate;
+            }
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            var systemDrive = Path.GetPathRoot(Environment.SystemDirectory) ?? "C:\\";
+            var commonCandidates = new[]
+            {
+                Path.Combine(systemDrive, "Tools", "ffmpeg", "bin", "ffmpeg.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ffmpeg", "bin", "ffmpeg.exe")
+            };
+            var commonPath = commonCandidates.FirstOrDefault(File.Exists);
+            if (commonPath is not null)
+            {
+                return commonPath;
             }
         }
 
