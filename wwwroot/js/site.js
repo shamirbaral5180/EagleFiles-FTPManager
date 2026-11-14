@@ -336,7 +336,10 @@ function loadBrowserVideoFrame(thumbnail) {
 }
 
 const queuedThumbnails = [...document.querySelectorAll('[data-thumbnail][data-thumbnail-src]')];
-let activeThumbnail = null;
+const maximumConcurrentThumbnailLoads = navigator.connection?.saveData ? 2 : 6;
+const maximumConcurrentVideoLoads = navigator.connection?.saveData ? 1 : 2;
+let activeThumbnailLoads = 0;
+let activeVideoLoads = 0;
 
 function thumbnailPriority(thumbnail) {
     const bounds = thumbnail.getBoundingClientRect();
@@ -360,6 +363,8 @@ function compareThumbnailPriority(left, right) {
 function loadQueuedThumbnail(thumbnail) {
     return new Promise(resolve => {
         const tile = thumbnail.closest('.file-preview-tile');
+        const bounds = thumbnail.getBoundingClientRect();
+        thumbnail.fetchPriority = bounds.bottom > 0 && bounds.top < window.innerHeight ? 'high' : 'low';
         const loaded = () => {
             cleanup();
             tile?.classList.remove('thumbnail-failed');
@@ -381,25 +386,33 @@ function loadQueuedThumbnail(thumbnail) {
     });
 }
 
-async function processThumbnailQueue() {
-    if (activeThumbnail) {
-        return;
-    }
+function processThumbnailQueue() {
+    while (activeThumbnailLoads < maximumConcurrentThumbnailLoads) {
+        const next = queuedThumbnails
+            .filter(thumbnail => thumbnail.dataset.thumbnailState === 'queued' &&
+                !thumbnail.closest('[data-file-item]')?.hidden &&
+                (thumbnail.dataset.thumbnailKind !== 'video' || activeVideoLoads < maximumConcurrentVideoLoads))
+            .sort(compareThumbnailPriority)[0];
+        if (!next) {
+            return;
+        }
 
-    const next = queuedThumbnails
-        .filter(thumbnail => thumbnail.dataset.thumbnailState === 'queued' &&
-            !thumbnail.closest('[data-file-item]')?.hidden)
-        .sort(compareThumbnailPriority)[0];
-    if (!next) {
-        return;
-    }
+        const isVideo = next.dataset.thumbnailKind === 'video';
+        next.dataset.thumbnailState = 'loading';
+        activeThumbnailLoads++;
+        if (isVideo) {
+            activeVideoLoads++;
+        }
 
-    activeThumbnail = next;
-    next.dataset.thumbnailState = 'loading';
-    await loadQueuedThumbnail(next);
-    next.dataset.thumbnailState = 'complete';
-    activeThumbnail = null;
-    processThumbnailQueue();
+        loadQueuedThumbnail(next).finally(() => {
+            next.dataset.thumbnailState = 'complete';
+            activeThumbnailLoads--;
+            if (isVideo) {
+                activeVideoLoads--;
+            }
+            processThumbnailQueue();
+        });
+    }
 }
 
 if ('IntersectionObserver' in window) {

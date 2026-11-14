@@ -116,13 +116,13 @@ else
                     else if (item.Category == "image")
                     {
                         <span class="thumbnail-fallback type-art image"><i>@fileLabel</i></span>
-                        <img class="media-thumbnail" data-thumbnail-src="@Url.Action("Thumbnail", new { id = Model.Connection.Id, path = item.Path, width = 640, version })" alt="Thumbnail of @item.Name" decoding="async" data-thumbnail data-thumbnail-kind="image" />
+                        <img class="media-thumbnail" data-thumbnail-src="@Url.Action("Thumbnail", new { id = Model.Connection.Id, path = item.Path, width = 320, version })" alt="Thumbnail of @item.Name" decoding="async" data-thumbnail data-thumbnail-kind="image" />
                     }
                     else if (item.Category == "video")
                     {
                         <span class="video-art">
                             <span class="thumbnail-fallback type-art video"><i>@fileLabel</i></span>
-                            <img class="media-thumbnail" data-thumbnail-src="@Url.Action("Thumbnail", new { id = Model.Connection.Id, path = item.Path, width = 640, version })" alt="Video poster for @item.Name" decoding="async" data-thumbnail data-thumbnail-kind="video"
+                            <img class="media-thumbnail" data-thumbnail-src="@Url.Action("Thumbnail", new { id = Model.Connection.Id, path = item.Path, width = 320, version })" alt="Video poster for @item.Name" decoding="async" data-thumbnail data-thumbnail-kind="video"
                                  @if (FileTypeCatalog.CanBrowserPreviewVideo(item.Extension)) { <text>data-video-preview="@Url.Action("Preview", new { id = Model.Connection.Id, path = item.Path })"</text> } />
                             <i>▶</i>
                         </span>
