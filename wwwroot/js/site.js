@@ -388,6 +388,9 @@ if (lightbox) {
         const item = items[currentIndex];
         const type = item.dataset.viewerType;
         const requestId = ++highResolutionRequest;
+        const viewerName = lightbox.querySelector('[data-lightbox-name]');
+        viewerName.textContent = item.dataset.viewerName;
+        viewerName.title = item.dataset.viewerName;
         lightbox.querySelector('[data-lightbox-download]').href = item.dataset.viewerDownload;
         lightbox.classList.toggle('image-active', type === 'image');
         mediaHost.replaceChildren();

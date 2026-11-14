@@ -131,7 +131,7 @@ else
                         <span class="type-art @item.Category"><i>@fileLabel</i></span>
                     }
                 </a>
-                <a class="file-name" asp-action="@(item.IsDirectory ? "Index" : "Open")" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path" asp-route-version="@version" data-viewer-open="@(item.IsDirectory ? null : "true")">
+                <a class="file-name" asp-action="@(item.IsDirectory ? "Index" : "Open")" asp-route-id="@Model.Connection.Id" asp-route-path="@item.Path" asp-route-version="@version" data-viewer-open="@(item.IsDirectory ? null : "true")" title="@item.Name">
                     <i class="file-icon @(item.IsDirectory ? "folder-icon" : $"document-icon {item.Category}")">@(item.IsDirectory ? "" : item.Extension.TrimStart('.').ToUpperInvariant()[..Math.Min(3, item.Extension.TrimStart('.').Length)])</i>
                     <span><strong>@item.Name</strong><small>@item.TypeLabel · @item.DisplaySize</small></span>
                 </a>
@@ -169,6 +169,7 @@ else
 
 <dialog class="media-lightbox" data-media-lightbox aria-label="File preview">
     <div class="lightbox-shell">
+        <div class="lightbox-current-name" data-lightbox-name></div>
         <header class="lightbox-header">
             <div class="lightbox-tools">
                 <button type="button" data-lightbox-reset title="Fit to screen" aria-label="Fit to screen">↺</button>
